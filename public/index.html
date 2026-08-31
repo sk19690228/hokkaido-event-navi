@@ -1,0 +1,31 @@
+<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#111827"><link rel="manifest" href="/manifest.json"><title>北海道イベントナビ</title><style>
+:root{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#111827;background:#f3f4f6}body{margin:0}.wrap{max-width:760px;margin:auto;padding:12px 12px 80px}.head{position:sticky;top:0;background:#111827;color:white;padding:14px 16px;z-index:5}.head b{font-size:18px}.head small{display:block;opacity:.75;margin-top:3px}.section{margin:14px 0}.title{font-size:17px;font-weight:800;margin:0 0 8px}.sub{font-size:12px;color:#6b7280;margin-bottom:8px}.card{background:#fff;border-radius:14px;padding:12px 14px;margin-bottom:10px;box-shadow:0 1px 3px #0002}.name{font-weight:800;line-height:1.4}.row{font-size:14px;line-height:1.55}.link{display:block;margin-top:5px;word-break:break-all;color:#2563eb;text-decoration:none}.ticket{border-left:5px solid #ef4444}.next{border-left:5px solid #2563eb}.second{border-left:5px solid #7c3aed}.later{border-left:5px solid #6b7280}.badge{display:inline-block;font-size:11px;padding:2px 7px;border-radius:999px;background:#e5e7eb;margin-right:4px}.loading{padding:18px;text-align:center;color:#6b7280}.error{background:#fee2e2;color:#991b1b;padding:10px;border-radius:10px}.refresh{position:fixed;right:18px;bottom:18px;border:0;border-radius:999px;background:#111827;color:white;padding:13px 18px;font-weight:700;box-shadow:0 4px 14px #0004}a.pia{color:white}
+</style></head><body><div class="head"><b>北海道イベントナビ</b><small id="today">読み込み中…</small></div><div class="wrap">
+<section class="section"><h2 class="title">お笑い有料チケット</h2><div class="sub"><a class="pia" id="piaLink" target="_blank">チケットぴあ検索</a></div><div id="pia"><div class="loading">チケット情報を検索中…</div></div></section>
+<section class="section"><h2 class="title">次の土日祝</h2><div id="next"><div class="loading">イベントを検索中…</div></div></section>
+<section class="section"><h2 class="title">次の次の土日祝</h2><div id="second"><div class="loading">イベントを検索中…</div></div></section>
+<section class="section"><h2 class="title">それ以降の土日祝</h2><div id="later"><div class="loading">イベントを検索中…</div></div></section>
+</div><button class="refresh" onclick="loadAll()">再検索</button><script>
+let meta;
+const fmt=d=>new Intl.DateTimeFormat('ja-JP',{month:'numeric',day:'numeric',weekday:'short'}).format(new Date(d+'T00:00:00+09:00'));
+const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+function ticketCard(t){return `<div class="card ticket"><div class="name">★ ${esc(t.eventName)}</div><div class="row">開催日：${esc(t.eventDate)}</div><div class="row">発売日：${esc(t.saleDate)}</div><div class="row">料金：${esc(t.price)}</div><div class="row">開催場所：${esc(t.venue)}</div><a class="link" target="_blank" href="${esc(t.ticketUrl)}">${esc(t.ticketUrl)}</a></div>`}
+function eventCard(e,cls){return `<div class="card ${cls}"><div class="name">★ ${esc(e.eventName)}</div><div class="row">開催日：${esc(e.dateLabel||e.startDate)}</div><div class="row">チケット発売日：${esc(e.ticketSale||'—')}</div><div class="row">料金：${esc(e.price||'—')}</div><div class="row">エリア：${esc(e.area)}</div>${e.features?`<div class="row"><span class="badge">${esc(e.features)}</span></div>`:''}<a class="link" target="_blank" href="${esc(e.url)}">${esc(e.url)}</a></div>`}
+function containsDay(e,day){return e.startDate<=day && e.endDate>=day}
+function belongs(e,days){return days.some(d=>containsDay(e,d))}
+function sortEvents(a,b){return a.startDate.localeCompare(b.startDate)||a.eventName.localeCompare(b.eventName,'ja')}
+async function loadAll(){
+  document.querySelectorAll('#pia,#next,#second,#later').forEach(el=>el.innerHTML='<div class="loading">再検索中…</div>');
+  try{meta=await fetch('/api/meta').then(r=>r.json());document.getElementById('today').textContent=`基準日 ${meta.today}（日本時間）`;document.getElementById('piaLink').href=meta.piaUrl;
+    const [p,e]=await Promise.all([fetch('/api/pia').then(r=>r.json()),fetch('/api/events').then(r=>r.json())]);
+    if(p.error) throw new Error(p.error); document.getElementById('pia').innerHTML=(p.tickets||[]).map(ticketCard).join('')||'<div class="card">該当チケットなし</div>';
+    if(e.error) throw new Error(e.error); const ev=(e.events||[]).sort(sortEvents);
+    const groups=e.groups||meta.groups;
+    const n=ev.filter(x=>belongs(x,groups.next)); const s=ev.filter(x=>belongs(x,groups.second)&&!belongs(x,groups.next)); const l=ev.filter(x=>belongs(x,groups.later)&&!belongs(x,groups.next)&&!belongs(x,groups.second));
+    document.querySelector('#next').innerHTML=`<div class="sub">${groups.next.map(fmt).join('・')}</div>`+(n.map(x=>eventCard(x,'next')).join('')||'<div class="card">該当イベントなし</div>');
+    document.querySelector('#second').innerHTML=`<div class="sub">${groups.second.map(fmt).join('・')}</div>`+(s.map(x=>eventCard(x,'second')).join('')||'<div class="card">該当イベントなし</div>');
+    document.querySelector('#later').innerHTML=l.map(x=>eventCard(x,'later')).join('')||'<div class="card">該当イベントなし</div>';
+  }catch(err){document.querySelectorAll('#pia,#next,#second,#later').forEach(el=>el.innerHTML=`<div class="error">${esc(err.message)}</div>`)}
+}
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js'); loadAll();
+</script></body></html>
