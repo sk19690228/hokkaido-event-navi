@@ -1,0 +1,13 @@
+{
+  "name": "sapporo-event-pwa",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {"start": "node server.js"},
+  "dependencies": {
+    "cheerio": "^1.0.0",
+    "date-holidays": "^3.24.0",
+    "express": "^5.1.0",
+    "openai": "^5.20.0"
+  }
+}
